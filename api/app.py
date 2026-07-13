@@ -44,6 +44,24 @@ _model.eval()
 _ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/jpg"}
 
 
+@app.get("/")
+async def root():
+    return {
+        "service": "Invoice Intelligence API",
+        "using_fine_tuned_checkpoint": _model_loaded_from_checkpoint,
+        "try_it": "Open /docs for an interactive upload form, or POST an image to /extract.",
+        "note": (
+            None
+            if _model_loaded_from_checkpoint
+            else (
+                "Running the base pretrained LayoutLMv3 weights (not fine-tuned on invoices). "
+                "The pipeline works end-to-end, but field values won't be reliably accurate "
+                "until a checkpoint from train.py is provided via CHECKPOINT_PATH."
+            )
+        ),
+    }
+
+
 @app.get("/health")
 async def health():
     return {
@@ -72,4 +90,10 @@ async def extract_invoice(file: UploadFile = File(...)):
     finally:
         os.remove(tmp_path)
 
-    return {"fields": fields, "ocr_word_count": len(words)}
+    response = {"fields": fields, "ocr_word_count": len(words)}
+    if not _model_loaded_from_checkpoint:
+        response["note"] = (
+            "Base pretrained weights only (not fine-tuned) — field values are not yet reliable. "
+            "See README for how to train."
+        )
+    return response
