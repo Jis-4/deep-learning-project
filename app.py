@@ -17,6 +17,16 @@ import gradio as gr
 from PIL import Image
 from transformers import LayoutLMv3Processor
 
+try:
+    import spaces  # only available when running on a Hugging Face Space
+except ImportError:  # running locally, outside any Space
+    class _NoOpSpaces:
+        @staticmethod
+        def GPU(fn=None, **_kwargs):
+            return fn if fn is not None else (lambda f: f)
+
+    spaces = _NoOpSpaces()
+
 from src import config
 from src.infer import predict_invoice
 from src.model import InvoiceExtractor
@@ -40,6 +50,7 @@ _DEMO_NOTE = (
 )
 
 
+@spaces.GPU
 def extract(image: Image.Image):
     if image is None:
         return {}, "Upload an invoice image first."
