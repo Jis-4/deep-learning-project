@@ -3,8 +3,9 @@ title: Invoice Intelligence Demo
 emoji: 🧾
 colorFrom: blue
 colorTo: purple
-sdk: docker
-app_port: 8000
+sdk: gradio
+sdk_version: 4.36.0
+app_file: app.py
 pinned: false
 ---
 
@@ -12,26 +13,36 @@ pinned: false
 
 OCR + layout-aware transformer (LayoutLMv3) pipeline that turns invoice
 images into structured JSON — invoice number, date, vendor name, and
-total amount — served through a FastAPI endpoint.
+total amount. Ships two front ends: a FastAPI JSON service (`api/app.py`)
+and a Gradio demo UI (`app.py`) for Hugging Face Spaces.
 
 ## Live demo on Hugging Face Spaces
 
-This repo doubles as a Hugging Face Space (the YAML block at the very top
-of this file is what Spaces reads to configure the build — `sdk: docker`
-tells it to build the `Dockerfile` in this repo and serve it on port 8000).
+This repo doubles as a Hugging Face Space. The YAML block at the very
+top of this file is what Spaces reads to configure the build —
+`sdk: gradio` + `app_file: app.py` means it runs `app.py` directly with
+no Docker build step, which works on the free **CPU Basic** tier (and
+also on **ZeroGPU** if that's what your account defaults to — this app
+is CPU-light enough that either works fine).
+
+> Note: Hugging Face's free-tier SDK availability has been in flux lately
+> (Docker now requires a paid plan; some accounts are seeing Gradio
+> restricted to ZeroGPU-only). If Gradio Spaces aren't available on your
+> account either, ZeroGPU is still free — it just has a daily GPU-minute
+> quota, which is irrelevant here since this app barely touches the GPU.
 
 **Important caveat about the deployed demo:** it runs the *base pretrained*
 LayoutLMv3 weights, not a fine-tuned one. The token-classification head
 (the part that decides "this word is an invoice number" vs "this word is
 a total") is randomly initialized until you train it — so the deployed
-`/extract` endpoint currently proves the pipeline runs end-to-end (OCR →
-layout model → structured JSON), but the actual field values it returns
-won't be reliably correct yet. Every response includes a `"note"` field
-saying so. See [Training](#training) below to fix that.
+demo currently proves the pipeline runs end-to-end (OCR → layout model →
+structured JSON), but the actual field values it returns won't be
+reliably correct yet. The UI shows a note saying so. See
+[Training](#training) below to fix that.
 
 ### Deploying this repo to a Space
 
-1. Create a new Space at https://huggingface.co/new-space with **Docker**
+1. Create a new Space at https://huggingface.co/new-space with **Gradio**
    as the SDK (any name, e.g. `invoice-intelligence-demo`).
 2. Locally:
    ```bash
@@ -40,12 +51,15 @@ saying so. See [Training](#training) below to fix that.
    git remote add space https://huggingface.co/spaces/<your-username>/invoice-intelligence-demo
    git push space main
    ```
-3. The Space will build the `Dockerfile` and come up at
-   `https://huggingface.co/spaces/<your-username>/invoice-intelligence-demo`.
-   First build takes a few minutes (downloading the ~500MB LayoutLMv3
-   weights + EasyOCR models on first request).
-4. Try it at `/docs` (interactive Swagger UI — upload an image straight
-   from the browser) or `POST /extract`.
+3. The Space installs `requirements.txt` and runs `app.py`. First load
+   takes a few minutes (downloading the ~500MB LayoutLMv3 weights +
+   EasyOCR models). Once it's up:
+   `https://huggingface.co/spaces/<your-username>/invoice-intelligence-demo`
+4. Upload an invoice image in the UI and click "Extract fields".
+
+The FastAPI service (`api/app.py`) still works the same way locally or
+in Docker if you have Docker/a paid Space tier available — see
+[Running the API](#running-the-api) below.
 
 ```
 invoice image  →  OCR (EasyOCR)  →  words + bounding boxes
@@ -66,6 +80,7 @@ number" near the header, and so on.
 
 ```
 invoice-intelligence/
+├── app.py                       # Gradio demo UI (Hugging Face Spaces entry point)
 ├── data/
 │   ├── sample_invoice_1.png   # synthetic sample invoice for smoke-testing
 │   └── annotations.csv        # matching training annotations
