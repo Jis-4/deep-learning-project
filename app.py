@@ -99,4 +99,9 @@ with gr.Blocks(title="Invoice Intelligence Demo") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(show_api=False)
+    # show_api was removed in gradio 6.x (TypeError: unexpected keyword argument);
+    # older gradio versions still accept it. Try the newer call first, fall back safely.
+    try:
+        demo.launch(show_api=False)
+    except TypeError:
+        demo.launch()
